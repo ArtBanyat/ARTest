@@ -2,7 +2,8 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-<!-- === สคริปต์บังคับแก้ปัญหาถ่ายรูปไม่ติดโมเดล (Force Preserve Drawing Buffer) === -->
+    
+    <!-- === สคริปต์บังคับแก้ปัญหาถ่ายรูปไม่ติดโมเดล (Force Preserve Drawing Buffer) === -->
     <!-- ต้องวางไว้ "ก่อน" โหลด A-Frame -->
     <script>
       (function() {
@@ -15,15 +16,16 @@
           return originalGetContext.call(this, type, attributes, ...args);
         };
       })();
-    </script> 
-    <!-- โหลดไลบรารี A-Frame และ MindAR -->
+    </script>
+    
+    <!-- โหลดไลบรารี AR -->
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     
     <style>
       body { margin: 0; overflow: hidden; }
       
-      /* ตกแต่งปุ่มชัตเตอร์ถ่ายรูป */
+      /* ตกแต่งปุ่มชัตเตอร์ */
       #capture-btn {
         position: absolute;
         bottom: 30px;
@@ -37,6 +39,7 @@
         z-index: 1000;
         cursor: pointer;
         display: none; /* ซ่อนไว้จนกว่ากล้องจะพร้อม */
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
       }
       #capture-btn:active {
         background-color: rgba(255, 255, 255, 0.9);
@@ -50,45 +53,38 @@
 
     <!-- 
       ตั้งค่า Scene: 
-      1. เปลี่ยน ./target.mind เป็นไฟล์รูปเป้าหมายของคุณ
-      2. uiLoading: no; และ uiScanning: no; (เพื่อปิดกรอบสแกน)
-      3. preserveDrawingBuffer: true (จำเป็นมากสำหรับการถ่ายรูป 3D)
+      uiLoading/Scanning: no (ปิดกรอบสแกน)
+      renderer: ถึงใส่ preserveDrawingBuffer: true ตรงนี้แล้ว บางทีเบราว์เซอร์ก็ละเลย 
+      (จึงต้องใช้สคริปต์บังคับที่ด้านบนสุดเสริม)
     -->
     <a-scene mindar-image="imageTargetSrc: ./targets.mind; uiLoading: no; uiScanning: no;" 
              color-space="sRGB" 
-             renderer="colorManagement: true, physicallyCorrectLights, preserveDrawingBuffer: true" 
+             renderer="colorManagement: true, physicallyCorrectLights" 
              vr-mode-ui="enabled: false" 
              device-orientation-permission-ui="enabled: false">
       
       <a-assets>
-        <!-- เปลี่ยนชื่อไฟล์เป็น 3D โมเดลของคุณ (.glb) -->
-        <a-asset-item id="myModel" src="./low_poly_light_bulb.glb"></a-asset-item>
+        <!-- เปลี่ยน your-model.glb เป็นไฟล์ของคุณ -->
+        <a-asset-item id="myModel" src="./Singha3d.glb"></a-asset-item>
       </a-assets>
 
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
       <a-entity mindar-image-target="targetIndex: 0">
-        
-        <!-- 
-          [วิธีเปิดการหมุน] 
-          หากต้องการให้โมเดลหมุน ให้ก๊อปปี้บรรทัดด้านล่างนี้ ไปใส่ต่อท้ายในแท็ก <a-gltf-model>
-          animation="property: rotation; to: 0 360 0; loop: true; dur: 5000; easing: linear;" 
-        -->
+        <!-- ปรับแต่ง rotation/position/scale ตามต้องการ -->
         <a-gltf-model 
           src="#myModel" 
           position="0 0 0" 
-          scale="5 5 5" 
+          scale="2 2 2" 
           rotation="0 0 0"
         ></a-gltf-model>
-
       </a-entity>
     </a-scene>
 
-    <!-- สคริปต์สำหรับปุ่มถ่ายรูป (รวมกล้องและ 3D เข้าด้วยกัน) -->
+    <!-- สคริปต์ปุ่มถ่ายรูป (ไม่มีการเปลี่ยนแปลง) -->
     <script>
       const captureBtn = document.getElementById('capture-btn');
       
-      // แสดงปุ่มถ่ายรูปก็ต่อเมื่อระบบ AR โหลดกล้องเสร็จแล้ว
       const sceneEl = document.querySelector('a-scene');
       sceneEl.addEventListener('arReady', () => {
         captureBtn.style.display = 'block';
@@ -105,7 +101,6 @@
         tempCanvas.height = canvas.height;
         const ctx = tempCanvas.getContext('2d');
 
-        // คำนวณสัดส่วนวิดีโอเพื่อไม่ให้ภาพเบี้ยว
         const videoRatio = video.videoWidth / video.videoHeight;
         const canvasRatio = canvas.width / canvas.height;
         let drawWidth, drawHeight, startX, startY;
@@ -122,14 +117,14 @@
             startY = (canvas.height - drawHeight) / 2;
         }
 
-        // 1. วาดพื้นหลัง (ภาพจากกล้อง)
+        // 1. วาดพื้นหลัง (กล้อง)
         ctx.drawImage(video, startX, startY, drawWidth, drawHeight);
-        // 2. วาดภาพ 3D ทับลงไป
+        // 2. วาดโมเดล 3D ทับลงไป
         ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height);
 
-        // แปลงภาพและสั่งดาวน์โหลด
+        // เซฟภาพ
         const link = document.createElement('a');
-        link.download = 'AR-Photo.png'; // เปลี่ยนชื่อไฟล์ภาพที่จะเซฟได้ที่นี่
+        link.download = 'AR-Photo.png';
         link.href = tempCanvas.toDataURL('image/png');
         link.click();
       });
